@@ -5,57 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>HDBank · Đánh giá Google Maps</title>
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#dc2c29">
+<meta name="theme-color" content="#da2128">
 <link rel="icon" type="image/png" href="assets/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="assets/brand.css">
 <style>
+/* Biến riêng của dashboard, map vào hệ màu trong brand.css (chỉ 5 màu thương hiệu + sắc độ 10–100%) */
 :root {
-  /* Nhận diện HDBank (template slide): đỏ DC2C29, cam F7941D, vàng FFC20E, xám 4D4F4F – chỉ giao diện sáng như template */
-  color-scheme: light;
-  --red: #dc2c29; --red-dark: #b81f1c; --orange: #f7941d; --yellow: #ffc20e; --gray: #4d4f4f;
-  --page: #f6f5f3; --surface: #ffffff; --ink: #1f2121; --ink2: #4d4f4f; --muted: #7d7f7f;
-  --grid: #e7e5e1; --axis: #c9c7c2; --border: rgba(31,33,33,.10); --hover: rgba(220,44,41,.05);
-  --accent: var(--red); --brand: var(--red); --link: var(--red-dark);
-  --brand-grad: linear-gradient(90deg, var(--yellow) 0%, var(--orange) 35%, var(--red) 75%);
-  /* Thang số sao phân kỳ: 4–5★ tông thương hiệu (cam → đỏ), 1–2★ xám, 3★ xám nhạt trung tính.
-     Đã chạy validate_palette: CVD ΔE tối thiểu 15,9; tương phản thấp được bù bằng chú giải + nhãn + bảng. */
-  --s1: #4d4f4f; --s2: #9a9c9c; --s3: #d4d2cd; --s4: #f7941d; --s5: #dc2c29;
-  --font: "Myriad Pro", "Source Sans 3", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  --muted: var(--gray); --grid: var(--gray-20); --axis: var(--gray-50); --border: var(--gray-20); --hover: var(--red-10);
+  --accent: var(--red); --brand: var(--red); --link: var(--red);
+  /* Thang số sao phân kỳ: 5★ đỏ, 4★ cam; 3★/2★/1★ xám sắc độ 30/70/100%.
+     validate_palette: CVD ΔE tối thiểu 15,4, mắt thường 17,2; tương phản thấp được bù bằng chú giải + nhãn + bảng. */
+  --s1: var(--gray); --s2: var(--gray-70); --s3: var(--gray-30); --s4: var(--orange); --s5: var(--red);
 }
-* { box-sizing: border-box; }
-body {
-  margin: 0; background: var(--page); color: var(--ink);
-  font: 15px/1.45 var(--font);
-  padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 0);
-}
-.wrap { max-width: 1240px; margin: 0 auto; padding-inline: max(16px, env(safe-area-inset-left, 0)); padding-block: 0 48px; }
-/* Thanh tiêu đề kiểu slide master: logo trên nền trắng + dải đỏ có vệt cam/vàng */
-.brandbar { display: flex; align-items: stretch; height: 60px; background: var(--surface); }
-.brandbar .logo { flex: none; display: flex; align-items: center; padding: 0 20px 0 max(16px, env(safe-area-inset-left, 0)); }
-.brandbar .logo img { height: 28px; width: auto; display: block; }
-.brandbar .bar {
-  flex: 1; min-width: 0; display: flex; align-items: center; padding-left: clamp(84px, 14vw, 190px); padding-right: 16px;
-  background: url("assets/bar.png") left center / auto 100% no-repeat, var(--red); border-top-left-radius: 14px;
-}
-.brandbar h1 { margin: 0; color: #fff; font-size: 21px; font-weight: 700; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-header .top { background: var(--surface); border-bottom: 1px solid var(--border); }
-header .top .wrap { padding-block: 10px; }
-.sub { color: var(--ink2); font-size: 13.5px; }
-@media (max-width: 560px) {
-  .brandbar { height: 50px; }
-  .brandbar .logo { padding-right: 12px; }
-  .brandbar .logo img { height: 21px; }
-  .brandbar .bar { padding-left: 60px; }
-  .brandbar h1 { font-size: 17px; }
-}
+main.wrap { padding-block: 0 8px; }
+.band .sub { opacity: .95; }
 .filters {
   position: sticky; top: env(safe-area-inset-top, 0); z-index: 5; background: var(--page);
   display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: end; padding: 14px 0 12px; border-bottom: 1px solid var(--border);
 }
 .filters label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--ink2); }
-select:focus, input[type=search]:focus, .chip:focus-visible, .more:focus-visible, button.reset:focus-visible, th.sort:focus-visible { outline: 2px solid var(--orange); outline-offset: 1px; }
 select, input[type=search] {
   font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--border);
   border-radius: 8px; padding: 7px 10px; min-width: 150px; max-width: 100%;
@@ -63,15 +34,15 @@ select, input[type=search] {
 input[type=search] { min-width: 220px; }
 button.reset { font: inherit; background: none; border: 0; color: var(--link); cursor: pointer; padding: 8px 4px; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-top: 18px; }
-.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); }
 .tile .lab { color: var(--ink2); font-size: 13px; }
 .tile .val { font-size: 28px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
 .tile.hero { position: relative; overflow: hidden; }
-.tile.hero::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; background: var(--brand-grad); }
+.tile.hero::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; background: var(--red); }
 .tile.hero .val { font-size: 48px; line-height: 1.05; color: var(--red); }
 .tile .note { color: var(--muted); font-size: 12px; margin-top: 2px; }
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: 12px; margin-top: 12px; }
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 12px; min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 12px; min-width: 0; box-shadow: var(--shadow); }
 .grid2 .card { margin-top: 0; }
 .card h2 { font-size: 17px; margin: 0; font-weight: 700; padding-left: 10px; border-left: 4px solid var(--red); line-height: 1.25; }
 .card .desc { color: var(--muted); font-size: 13px; margin: 4px 0 10px 14px; }
@@ -90,7 +61,7 @@ details.tv summary { color: var(--link); cursor: pointer; }
 .tscroll { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
 th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
-th { color: var(--ink2); font-weight: 700; font-size: 12.5px; background: #faf9f7; position: sticky; top: 0; z-index: 1; }
+th { color: var(--ink2); font-weight: 700; font-size: 12.5px; background: var(--surface); position: sticky; top: 0; z-index: 1; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 th.sort { cursor: pointer; user-select: none; }
 th.sort::after { content: " ↕"; color: var(--axis); }
@@ -108,14 +79,14 @@ a { color: var(--link); }
 .rv .stars { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--ink); }
 .rv .stars i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .rv .txt { margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
-.rv .reply { margin-top: 8px; padding: 8px 10px; border-left: 3px solid var(--orange); background: #fff8ef; border-radius: 0 6px 6px 0; font-size: 13px; color: var(--ink2); white-space: pre-wrap; overflow-wrap: anywhere; }
+.rv .reply { margin-top: 8px; padding: 8px 10px; border-left: 3px solid var(--orange); background: var(--orange-10); border-radius: 0 6px 6px 0; font-size: 13px; color: var(--ink2); white-space: pre-wrap; overflow-wrap: anywhere; }
 .rv .reply b { color: var(--ink); }
 .rv .noreply { color: var(--muted); font-size: 12px; margin-top: 6px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; }
 .chip { font: inherit; font-size: 12.5px; border: 1px solid var(--border); background: var(--surface); color: var(--ink2); border-radius: 999px; padding: 4px 10px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
-.chip[aria-pressed="true"] { color: var(--red-dark); border-color: var(--red); background: #fdf1f0; font-weight: 600; }
+.chip[aria-pressed="true"] { color: var(--red); border-color: var(--red); background: var(--red-10); font-weight: 700; }
 .chip i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-.more { margin-top: 10px; font: inherit; font-weight: 600; border: 1px solid var(--red); background: var(--surface); color: var(--red-dark); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+.more { margin-top: 10px; font: inherit; font-weight: 600; border: 1px solid var(--red); background: var(--surface); color: var(--red); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
 #tip {
   position: fixed; pointer-events: none; z-index: 20; background: var(--surface); color: var(--ink);
   border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12.5px;
@@ -126,20 +97,28 @@ a { color: var(--link); }
 #tip .r .k { display: inline-flex; align-items: center; gap: 6px; color: var(--ink2); }
 #tip .r .k i { width: 12px; height: 2px; display: inline-block; }
 #tip .r b { font-weight: 650; }
-footer { color: var(--muted); font-size: 12px; margin-top: 24px; }
+.note { color: var(--muted); font-size: 12.5px; margin-top: 24px; }
 .mini { display: block; }
 @media (max-width: 760px) { .hide-sm { display: none; } .tile.hero .val { font-size: 40px; } }
 @media (forced-colors: active) { .legend i, .chip i, .rv .stars i { forced-color-adjust: none; } }
 </style>
 </head>
 <body>
-<header>
-  <div class="brandbar">
-    <a class="logo" href="/" title="Về trang chủ HDBank Digital"><img src="assets/logo.png" alt="HDBank" width="105" height="28"></a>
-    <div class="bar"><h1>Đánh giá Google Maps · Mạng lưới HDBank</h1></div>
+<header class="site-head">
+  <div class="wrap">
+    <a class="logo" href="/"><img src="assets/logo.png" alt="HDBank" width="113" height="30"></a>
+    <nav class="site-nav" aria-label="Công cụ">
+      <a href="/ggmap-dashboard/" aria-current="page">Đánh giá <span class="long">Google Maps</span></a>
+      <a href="/ggmap-qrcode/">Tạo mã QR</a>
+    </nav>
   </div>
-  <div class="top"><div class="wrap"><div class="sub" id="updated">Đang tải dữ liệu…</div></div></div>
 </header>
+<section class="band">
+  <div class="wrap">
+    <h1>Đánh giá Google Maps · Mạng lưới HDBank</h1>
+    <p class="sub" id="updated">Đang tải dữ liệu…</p>
+  </div>
+</section>
 
 <main class="wrap">
   <div class="filters" role="search">
@@ -198,11 +177,18 @@ footer { color: var(--muted); font-size: 12px; margin-top: 24px; }
     <button class="more" id="rvMore" type="button" hidden>Xem thêm</button>
   </section>
 
-  <footer>
+  <p class="note">
     Nguồn: Google Maps, thu thập tự động. Ngày đăng là <b>ước tính</b> từ hiển thị tương đối của Google
     (“3 ngày trước”, “2 năm trước”): chính xác tới ngày với đánh giá mới, tới tháng/năm với đánh giá cũ.
-  </footer>
+  </p>
 </main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <span><b>HDBank Digital</b> · Trang nội bộ · Số liệu đánh giá lấy từ Google Maps công khai</span>
+    <span>Hotline <a href="tel:19006060">1900 6060</a> · <a href="https://www.hdbank.com.vn" target="_blank" rel="noopener">www.hdbank.com.vn</a></span>
+  </div>
+</footer>
 <div id="tip" hidden></div>
 
 <script>
