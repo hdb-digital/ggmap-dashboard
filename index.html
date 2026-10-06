@@ -33,6 +33,8 @@ select, input[type=search] {
 }
 input[type=search] { min-width: 220px; }
 button.reset { font: inherit; background: none; border: 0; color: var(--link); cursor: pointer; padding: 8px 4px; }
+.filters .export { margin-left: auto; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; }
+.filters .export:disabled { cursor: progress; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-top: 18px; }
 .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); }
 .tile .lab { color: var(--ink2); font-size: 13px; }
@@ -136,6 +138,10 @@ a { color: var(--link); }
     <label>Loại <select id="fType"><option value="">Tất cả</option></select></label>
     <label>Tìm địa điểm <input id="fSearch" type="search" placeholder="Tên chi nhánh / PGD…"></label>
     <button class="reset" id="fReset" type="button">Xóa lọc</button>
+    <button class="btn primary export" id="fExport" type="button" title="Tải file Excel theo bộ lọc đang chọn">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 21h16"/></svg>
+      Tải Excel
+    </button>
   </div>
 
   <section class="tiles" id="tiles" aria-live="polite"></section>
@@ -178,7 +184,8 @@ a { color: var(--link); }
   </section>
 
   <p class="note">
-    Nguồn: Google Maps, thu thập tự động. Ngày đăng là <b>ước tính</b> từ hiển thị tương đối của Google
+    Nguồn: Google Maps. Với các địa điểm HDBank quản lý trên Google Business Profile, số liệu và ngày đăng lấy trực tiếp
+    từ Google (chính xác). Với các địa điểm còn lại, ngày đăng là <b>ước tính</b> từ hiển thị tương đối của Google
     (“3 ngày trước”, “2 năm trước”): chính xác tới ngày với đánh giá mới, tới tháng/năm với đánh giá cũ.
   </p>
 </main>
@@ -308,14 +315,30 @@ function periodLabel(f) {
   return state.time === "all" ? "toàn bộ thời gian" : state.time === "base" ? `sau ngày ${fmtDate(DATA.baselineDate)}` : o.toLowerCase();
 }
 
-function renderTiles(f) {
-  const withData = f.locs.filter(l => l.hasData);
-  const withRev = withData.filter(l => l.total);
+/* ---------- chỉ số dùng chung cho thẻ KPI, biểu đồ và file Excel ---------- */
+function kpis(f) {
+  const withRev = f.locs.filter(l => l.hasData && l.total);
   const total = withRev.reduce((a, l) => a + l.total, 0);
   const wavg = total ? withRev.reduce((a, l) => a + l.total * (l.rating || 0), 0) / total : null;
   const n = f.revs.length, neg = f.revs.filter(r => r.stars <= 2).length;
   const avgNew = n ? f.revs.reduce((a, r) => a + r.stars, 0) / n : null;
   const replied = f.revs.filter(r => r.reply).length;
+  return { withRev, total, wavg, n, neg, avgNew, replied };
+}
+function provStats(f) {
+  const g = new Map();
+  for (const l of f.locs) {
+    if (!l.hasData || !l.total || l.rating == null) continue;
+    const p = g.get(l.province) || { n: 0, total: 0, sum: 0 };
+    p.n++; p.total += l.total; p.sum += l.total * l.rating; g.set(l.province, p);
+  }
+  return [...g.entries()].map(([name, p]) => ({ label: name, value: p.sum / p.total, total: p.total, n: p.n, color: "var(--accent)" }))
+    .sort((a, b) => b.value - a.value || b.total - a.total);
+}
+function reviewList(f) { return f.revs.filter(r => state.stars.has(r.stars) && (!state.unreplied || !r.reply)); }
+
+function renderTiles(f) {
+  const { withRev, total, wavg, n, neg, avgNew, replied } = kpis(f);
   const tile = (lab, val, note, hero) => el("div", { class: "tile" + (hero ? " hero" : "") },
     el("div", { class: "lab" }, lab), el("div", { class: "val" }, val), note ? el("div", { class: "note" }, note) : null);
   $("tiles").replaceChildren(
@@ -432,14 +455,7 @@ function renderTime(f) {
 }
 
 function renderProv(f) {
-  const g = new Map();
-  for (const l of f.locs) {
-    if (!l.hasData || !l.total || l.rating == null) continue;
-    const p = g.get(l.province) || { n: 0, total: 0, sum: 0 };
-    p.n++; p.total += l.total; p.sum += l.total * l.rating; g.set(l.province, p);
-  }
-  const items = [...g.entries()].map(([name, p]) => ({ label: name, value: p.sum / p.total, total: p.total, n: p.n, color: "var(--accent)" }))
-    .sort((a, b) => b.value - a.value || b.total - a.total);
+  const items = provStats(f);
   if (!items.length) { $("cProv").replaceChildren(el("p", { class: "nodata" }, "Không có dữ liệu cho bộ lọc hiện tại.")); $("tProv").replaceChildren(); return; }
   hbarChart($("cProv"), items, {
     labelW: 120, max: 5, rowH: 24, barH: 14,
@@ -518,7 +534,7 @@ function renderReviews(f) {
     u.addEventListener("click", () => { state.unreplied = !state.unreplied; u.setAttribute("aria-pressed", String(state.unreplied)); state.shown = 20; renderReviews(filtered()); });
     $("rvChips").append(u);
   }
-  const list = f.revs.filter(r => state.stars.has(r.stars) && (!state.unreplied || !r.reply));
+  const list = reviewList(f);
   $("rvDesc").textContent = `${nf.format(list.length)} đánh giá, ${periodLabel(f)}, mới nhất trước.`;
   $("rvList").replaceChildren(...list.slice(0, state.shown).map(r => {
     const loc = LOC_BY_ID.get(r.loc);
@@ -534,6 +550,112 @@ function renderReviews(f) {
   const more = $("rvMore");
   more.hidden = list.length <= state.shown;
   more.textContent = `Xem thêm (${nf.format(Math.max(0, list.length - state.shown))} còn lại)`;
+}
+
+
+/* ---------- xuất Excel theo bộ lọc đang chọn (SheetJS, chỉ tải khi bấm nút) ---------- */
+const XLSX_SRC = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.mini.min.js";
+const XLSX_SRI = "sha384-6fBkVFQw1YKyYpZpKf7bguegzeJqso45fTePEWGNuVaGy70fxEhICA/yswrPjW4+";
+let xlsxLoading = null;
+function loadXlsx() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  return xlsxLoading ||= new Promise((ok, fail) => {
+    const sc = document.createElement("script");
+    sc.src = XLSX_SRC; sc.integrity = XLSX_SRI; sc.crossOrigin = "anonymous";
+    sc.onload = () => ok(window.XLSX);
+    sc.onerror = () => { xlsxLoading = null; sc.remove(); fail(new Error("Không tải được thư viện xuất Excel. Kiểm tra kết nối mạng rồi thử lại.")); };
+    document.head.append(sc);
+  });
+}
+const excelDate = (isoStr) => {  // số ngày kiểu Excel, tránh lệch múi giờ khi ghi kiểu Date
+  if (!isoStr) return null;
+  const [y, m, d] = isoStr.split("-").map(Number);
+  return (Date.UTC(y, m - 1, d) - Date.UTC(1899, 11, 30)) / 864e5;
+};
+const r2 = (v) => v == null ? null : Math.round(v * 100) / 100;
+
+function makeSheet(XLSX, rows, widths, { header = 0, formats = {}, links = {} } = {}) {
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws["!cols"] = widths.map(w => ({ wch: w }));
+  if (header) ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: header - 1, c: 0 }, e: { r: rows.length - 1, c: widths.length - 1 } }) };
+  for (let r = header; r < rows.length; r++) {
+    for (const [c, z] of Object.entries(formats)) { const cell = ws[XLSX.utils.encode_cell({ r, c: +c })]; if (cell && cell.t === "n") cell.z = z; }
+    for (const [c, get] of Object.entries(links)) {
+      const url = get(r - header), cell = ws[XLSX.utils.encode_cell({ r, c: +c })];
+      if (url && cell) cell.l = { Target: url, Tooltip: "Mở trên Google Maps" };
+    }
+  }
+  return ws;
+}
+
+async function exportExcel() {
+  const btn = $("fExport"), label = btn.lastChild.textContent;
+  btn.disabled = true; btn.lastChild.textContent = " Đang tạo file… ";
+  try {
+    const XLSX = await loadXlsx();
+    const f = filtered(), k = kpis(f), today = iso(new Date());
+    const starsSel = STARS.filter(st => state.stars.has(st));
+
+    // 1. Tổng quan: bộ lọc + các chỉ số như trên thẻ KPI
+    const overview = [
+      ["HDBank – Đánh giá Google Maps"],
+      ["Dữ liệu cập nhật", DATA.lastCrawl], ["Ngày xuất file", fmtDate(today)], [],
+      ["Bộ lọc", "Giá trị"],
+      ["Thời gian (ngày đăng)", periodLabel(f)],
+      ["Tỉnh/thành phố", state.prov || "Tất cả"],
+      ["Loại", state.type || "Tất cả"],
+      ["Tìm địa điểm", state.q || "—"],
+      ["Số sao (sheet Đánh giá chi tiết)", starsSel.length === STARS.length ? "Tất cả" : starsSel.map(st => `${st}★`).join(", ")],
+      ["Chỉ đánh giá chưa được phản hồi", state.unreplied ? "Có" : "Không"], [],
+      ["Chỉ số", "Giá trị", "Ghi chú"],
+      ["Điểm trung bình hiện tại", r2(k.wavg), "bình quân theo số lượt, thang 5"],
+      ["Tổng lượt đánh giá", k.total, `${k.withRev.length} / ${f.locs.length} địa điểm có đánh giá`],
+      ["Đánh giá trong kỳ", k.n, k.avgNew ? `TB ${nf1.format(k.avgNew)}★` : ""],
+      ["Tỷ lệ 1–2★ trong kỳ", k.n ? k.neg / k.n : null, `${k.neg} đánh giá tiêu cực`],
+      ["Tỷ lệ được HDBank phản hồi", k.n ? k.replied / k.n : null, "trên số đánh giá trong kỳ"],
+    ];
+    const wsO = makeSheet(XLSX, overview, [34, 28, 40]);
+    for (const [r, z] of [[13, "0.00"], [14, "#,##0"], [15, "#,##0"], [16, "0.0%"], [17, "0.0%"]]) {
+      const c = wsO[XLSX.utils.encode_cell({ r, c: 1 })];
+      if (c && c.t === "n") c.z = z;
+    }
+
+    // 2. Địa điểm
+    const inPeriod = new Map();
+    for (const r of f.revs) inPeriod.set(r.loc, (inPeriod.get(r.loc) || 0) + 1);
+    const locs = [...f.locs].sort((a, b) => a.id - b.id);
+    const locRows = [["#", "Tỉnh/thành phố", "Tên địa điểm", "Loại", "Điểm TB", "Tổng lượt", "5★", "4★", "3★", "2★", "1★", "Trong kỳ", "Link Google Maps"],
+      ...locs.map(l => [l.id, l.province || "", l.name, l.type || "", l.hasData ? l.rating ?? null : null, l.hasData ? l.total || 0 : null,
+        ...STARS.map((st, i) => l.stars ? l.stars[i] : null), inPeriod.get(l.id) || 0, l.url || ""])];
+    const wsL = makeSheet(XLSX, locRows, [6, 18, 38, 10, 9, 10, 7, 7, 7, 7, 7, 10, 44],
+      { header: 1, formats: { 4: "0.0", 5: "#,##0" }, links: { 12: (i) => locs[i] && locs[i].url } });
+
+    // 3. Theo tỉnh
+    const prov = provStats(f);
+    const wsP = makeSheet(XLSX, [["Tỉnh/thành phố", "Điểm TB", "Lượt đánh giá", "Địa điểm có đánh giá"],
+      ...prov.map(p => [p.label, r2(p.value), p.total, p.n])], [22, 10, 14, 20], { header: 1, formats: { 1: "0.00", 2: "#,##0" } });
+
+    // 4. Đánh giá chi tiết (theo bộ lọc + số sao + chưa phản hồi), mới nhất trước
+    const revs = reviewList(f);
+    const wsR = makeSheet(XLSX, [["Ngày đăng", "Tỉnh/thành phố", "Địa điểm", "Số sao", "Người đánh giá", "Nội dung", "HDBank phản hồi"],
+      ...revs.map(r => { const l = LOC_BY_ID.get(r.loc); return [excelDate(r.date), l.province || "", l.name, r.stars, r.author || "Ẩn danh", r.text || "", r.reply || ""]; })],
+      [12, 16, 34, 8, 24, 70, 60], { header: 1, formats: { 0: "dd/mm/yyyy" } });
+
+    const wb = XLSX.utils.book_new();
+    wb.Props = { Title: "HDBank – Đánh giá Google Maps", Author: "HDBank Digital", CreatedDate: new Date() };
+    XLSX.utils.book_append_sheet(wb, wsO, "Tổng quan");
+    XLSX.utils.book_append_sheet(wb, wsL, "Địa điểm");
+    XLSX.utils.book_append_sheet(wb, wsP, "Theo tỉnh");
+    XLSX.utils.book_append_sheet(wb, wsR, "Đánh giá chi tiết");
+    const timeTag = { all: "", 7: "_7ngay", 30: "_30ngay", 90: "_90ngay", 365: "_12thang", base: "_sau-moc" }[state.time] || "";
+    const provTag = state.prov ? "_" + norm(state.prov).replace(/[^a-z0-9]+/g, "-") : "";
+    XLSX.writeFile(wb, `HDBank_DanhGia_GoogleMaps_${today}${provTag}${timeTag}.xlsx`, { compression: true });
+  } catch (err) {
+    console.error(err);
+    alert(err.message || "Không tạo được file Excel.");
+  } finally {
+    btn.disabled = false; btn.lastChild.textContent = label;
+  }
 }
 
 /* ---------- boot ---------- */
@@ -555,6 +677,7 @@ async function boot() {
     $("fTime").value = "all"; $("fProv").value = ""; $("fType").value = ""; $("fSearch").value = ""; render();
   });
   $("rvMore").addEventListener("click", () => { state.shown += 20; renderReviews(filtered()); });
+  $("fExport").addEventListener("click", exportExcel);
   let t; window.addEventListener("resize", () => { clearTimeout(t); t = setTimeout(render, 150); });
   render();
 }
