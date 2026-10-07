@@ -194,7 +194,9 @@ main { padding-bottom: 24px; }
 .chart text.lab { fill: var(--grey); font-size: 13px; font-variant-numeric: normal; }
 .chart text.val { fill: var(--grey); font-size: 12.5px; font-weight: 600; }
 .chart .hit { fill: transparent; cursor: default; }
-.chart .hit:hover, .chart .hit:focus { fill: var(--hover); outline: none; }
+.chart .mark-row { outline: none; }
+.chart .mark-row:hover .hit, .chart .mark-row:focus .hit { fill: var(--hover); } /* nền nằm dưới thanh và chữ */
+.chart .mark-row:focus-visible .hit { stroke: var(--red); stroke-width: 1.5; }
 .nodata { color: var(--muted); }
 
 details.tv { margin-top: 12px; font-size: 14px; border-top: 1px solid var(--grey-10); padding-top: 10px; }
@@ -651,14 +653,14 @@ function hbarChart(host, items, { labelW, max, valueText, tipFn, rowH = 28, barH
   svg.append(s("line", { x1: labelW, x2: labelW, y1: 0, y2: items.length * rowH, stroke: "var(--axis)", "stroke-width": 1, "shape-rendering": "crispEdges" }));
   items.forEach((it, i) => {
     const y = i * rowH + (rowH - barH) / 2;
-    const g = s("g");
+    // Nền tô sáng khi hover vẽ trước (nằm dưới nhãn, thanh, số liệu) để không che dòng đang xem
+    const g = s("g", { class: "mark-row" });
+    g.append(s("rect", { class: "hit", x: 0, y: i * rowH, width: W, height: rowH, rx: 6 }));
     g.append(s("text", { class: "lab", x: labelW - 10, y: y + barH / 2 + 4, "text-anchor": "end" }, it.label));
     const w = Math.max(0, x(it.value) - labelW);
     if (w > 0) g.append(s("path", { d: hbarPath(labelW, y, w, barH), style: `fill:${it.color}` }));
     g.append(s("text", { class: "val", x: labelW + w + 8, y: y + barH / 2 + 4 }, valueText(it)));
-    const hit = s("rect", { class: "hit", x: 0, y: i * rowH, width: W, height: rowH, rx: 6 });
-    hoverable(hit, it.label, () => tipFn(it), `${it.label}: ${valueText(it)}`);
-    g.append(hit);
+    hoverable(g, it.label, () => tipFn(it), `${it.label}: ${valueText(it)}`);
     svg.append(g);
   });
   host.replaceChildren(svg);
@@ -721,18 +723,20 @@ function renderTime(f) {
     let acc = 0;
     const order = [5, 4, 3, 2, 1];
     const top = [...order].reverse().find(st => b[st] > 0);
+    // Nền tô sáng của cột vẽ trước, các đoạn cột vẽ đè lên trên
+    const g = s("g", { class: "mark-row" });
+    g.append(s("rect", { class: "hit", x: padL + slot * i, y: padT, width: slot, height: plotH, rx: 3 }));
     order.forEach((st) => {
       const v = b[st]; if (!v) return;
       const yTop = y(acc + v), yBot = y(acc) - (acc > 0 ? 2 : 0); // khe 2px giữa các đoạn
-      svg.append(s("path", { d: colPath(x0, yTop, bw, Math.max(0, yBot - yTop), st === top), style: `fill:${starVar(st)}` }));
+      g.append(s("path", { d: colPath(x0, yTop, bw, Math.max(0, yBot - yTop), st === top), style: `fill:${starVar(st)}` }));
       acc += v;
     });
-    if (i % every === 0) svg.append(s("text", { x: cx, y: H - 8, "text-anchor": "middle" }, label(k)));
-    const hit = s("rect", { class: "hit", x: padL + slot * i, y: padT, width: slot, height: plotH, rx: 3 });
-    hoverable(hit, longLabel(k), () => [
+    hoverable(g, longLabel(k), () => [
       ...STARS.map(st => ({ label: `${st}★`, value: nf.format(b[st]), color: starVar(st) })),
       { label: "Tổng", value: nf.format(totals[i]) }], `${longLabel(k)}: ${nf.format(totals[i])} đánh giá`);
-    svg.append(hit);
+    svg.append(g);
+    if (i % every === 0) svg.append(s("text", { x: cx, y: H - 8, "text-anchor": "middle" }, label(k)));
   });
   host.replaceChildren(svg);
   const nonEmpty = keys.filter((k, i) => totals[i] > 0).reverse();
