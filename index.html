@@ -1114,8 +1114,9 @@ function renderLocTable(f) {
   ];
   if (!cols.some(c => c.key === state.sort.key)) state.sort = { key: "id", dir: 1 };
   const col = cols.find(c => c.key === state.sort.key);
-  // Ô "Lọc điểm TB": chỉ giữ địa điểm có điểm TB trong kỳ (chưa làm tròn) từ HIGH_RATING trở lên
-  const shown = state.high ? f.locs.filter(l => (st(l)?.avg ?? 0) >= HIGH_RATING) : f.locs;
+  // Ô "Lọc điểm TB": chỉ giữ địa điểm có điểm TB trong kỳ từ HIGH_RATING trở lên, làm tròn 1 chữ số như Google Maps
+  // hiển thị (4,46 → 4,5 được tính). Làm tròn trên tổng sao để tránh sai số số thực (89/20 = 4,45 → 4,5).
+  const shown = state.high ? f.locs.filter(l => { const o = st(l); return o?.n > 0 && Math.round(o.sum * 10 / o.n) / 10 >= HIGH_RATING; }) : f.locs;
   $("locNote").replaceChildren("Có ", el("b", null, nf.format(shown.length)), " đơn vị kinh doanh");
   const rows = [...shown].sort((a, b) => {
     const va = col.get(a), vb = col.get(b);
